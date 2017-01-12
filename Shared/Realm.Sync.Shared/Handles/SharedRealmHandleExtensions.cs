@@ -19,6 +19,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Realms.Native;
 using Realms.Schema;
 using Realms.Sync.Exceptions;
 
@@ -121,9 +122,7 @@ namespace Realms.Sync
             ConfigureFileSystem(userPersistenceMode, null, false);
         }
 
-        #if __IOS__
-        [ObjCRuntime.MonoPInvokeCallback(typeof(NativeMethods.RefreshAccessTokenCallbackDelegate))]
-        #endif
+        [NativeCallback(typeof(NativeMethods.RefreshAccessTokenCallbackDelegate))]
         private static unsafe void RefreshAccessTokenCallback(IntPtr userHandlePtr, IntPtr sessionHandlePtr, sbyte* urlBuffer, IntPtr urlLength)
         {
             var userHandle = new SyncUserHandle();
@@ -151,9 +150,7 @@ namespace Realms.Sync
             });
         }
 
-        #if __IOS__
-        [ObjCRuntime.MonoPInvokeCallback(typeof(NativeMethods.SessionErrorCallback))]
-        #endif
+        [NativeCallback(typeof(NativeMethods.SessionErrorCallback))]
         private static unsafe void HandleSessionError(IntPtr sessionHandlePtr, ErrorCode errorCode, sbyte* messageBuffer, IntPtr messageLength)
         {
             var session = Session.SessionForPointer(sessionHandlePtr);
