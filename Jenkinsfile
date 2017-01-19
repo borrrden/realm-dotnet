@@ -52,6 +52,18 @@ stage('RealmWeaver') {
   }
 }
 
+stage('BuildTasks') {
+  nodeWithCleanup('xamarin-mac') {
+    getArchive()
+    def workspace = pwd()
+
+    dir('Weaver/Realm.BuildTasks') {
+      xbuildSafe("${xbuild} Realm.BuildTasks.csproj /p:Configuration=${configuration}")
+    }
+    stash includes: "Weaver/Realm.BuildTasks/bin/${configuration}/*.dll", name: 'nuget-buildtasks'
+  }
+}
+
 stage('Build without sync') {
   parallel(
     'iOS': {
@@ -323,6 +335,7 @@ stage('NuGet') {
         getArchive()
 
         unstash 'nuget-weaver'
+        unstash 'nuget-buildtasks'
         unstash 'nuget-pcl-database'
         unstash 'ios-wrappers-nosync'
         unstash 'nuget-ios-database'
