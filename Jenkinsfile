@@ -403,13 +403,10 @@ def nodeWithCleanup(String label, Closure steps) {
 
 def xbuildSafe(String command) {
   try {
-    sh "${command}"
+    def result = sh script: "${command}", returnStdout: true
+    echo "^^^^ result: " + result
   } catch (err) {
-    echo "Error, error, error: " + err.getMessage()
-    if (err.getMessage().contains("Assertion at gc.c:910, condition `ret != WAIT_TIMEOUT' not met")) {
-      echo "StyleCop crashed. No big deal."
-    } else {
-      throw err
-    }
+    echo "^^^^ message: " + err.getMessage()
+    echo "^^^^ trace:" + err.getStackTrace()
   }
 }
