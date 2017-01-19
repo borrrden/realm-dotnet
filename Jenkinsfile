@@ -70,7 +70,7 @@ stage('Weavers') {
 stage('Build without sync') {
   parallel(
     'iOS': {
-      nodeWithCleanup('xamarin-mac') {
+      nodeWithCleanup('osx') {
         getArchive()
 
         dir('wrappers') {
@@ -150,7 +150,7 @@ stage('Build without sync') {
 stage('Build with sync') {
   parallel(
     'iOS': {
-      nodeWithCleanup('xamarin-mac') {
+      nodeWithCleanup('osx') {
         getArchive()
 
         dir('wrappers') {
@@ -258,7 +258,7 @@ def Win32Test(stashName) {
 
 def iOSTest(stashName) {
   return {
-    nodeWithCleanup('xamarin-mac') {
+    nodeWithCleanup('osx') {
       unstash stashName
 
       dir('Tests.XamarinIOS.app') {
@@ -405,10 +405,12 @@ def nodeWithCleanup(String label, Closure steps) {
 
 def xbuildSafe(String command) {
   try {
-    def result = sh script: "${command}", returnStdout: true
-    echo "^^^^ result: " + result
+    sh "${command}"
   } catch (err) {
-    echo "^^^^ message: " + err.getMessage()
-    echo "^^^^ trace:" + err.getStackTrace()
+    if (err.getMessage().contains("Assertion at gc.c:910, condition `ret != WAIT_TIMEOUT' not met")) {
+      echo "StyleCop crashed. No big deal."
+    } else {
+      throw err
+    }
   }
 }
