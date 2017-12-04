@@ -22,6 +22,8 @@ using System.Linq;
 using Couchbase.Lite;
 using System.Collections.Generic;
 
+using Couchbase.Lite.Query;
+
 namespace Benchmarkr.Couchbase
 {
     public class Benchmark : BenchmarkBase
@@ -34,24 +36,22 @@ namespace Benchmarkr.Couchbase
             }
         }
 
-        static Benchmark()
-        {
-            global::Couchbase.Lite.Storage.ForestDB.Plugin.Register();
-        }
-
         private Database db;
         public override IDisposable OpenDB()
         {
-            var manager = new Manager(new DirectoryInfo(this.Path), ManagerOptions.Default);
-            manager.StorageType = "ForestDB";
-            return this.db = manager.GetDatabase("cbdb");
+            var config = new DatabaseConfiguration
+            {
+                Directory = Path
+            };
+
+            return db = new Database("cbdb", config);
         }
 
         public override void DeleteDB()
         {
             try
             {
-                Directory.Delete(this.Path, true);
+                Database.Delete("cbdb", Path);
             }
             catch (Exception)
             {
@@ -61,65 +61,47 @@ namespace Benchmarkr.Couchbase
 
         public override void RunInTransaction(Action action)
         {
-            this.db.RunInTransaction(() =>
-                {
-                    try
-                    {
-                        action();
-                        return true;
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                });
+            db?.InBatch(() => { action(); });
         }
 
         public override void InsertObject(uint index)
         {
-            this.db.CreateDocument()
-                .PutProperties(new Dictionary<string, object>
-            {
-                ["name"] = BenchmarkBase.NameValue(index),
-                ["age"] = BenchmarkBase.AgeValue(index),
-                ["is_hired"] = BenchmarkBase.IsHiredValue(index)
-            });
+            using (var doc = new MutableDocument()) {
+                doc.Set("name", NameValue(index))
+                    .Set("age", AgeValue(index))
+                    .Set("is_hired", IsHiredValue(index));
+                db?.Save(doc);
+            }
         }
 
         public override int Count(EmployeeQuery query)
         {
-            using (var enumerator = this.ConvertQuery(query).Run())
-            {
-                return enumerator.Count;
-            }
+            using (var q = ConvertQuery(query))
+                using(var result = q.Run()) {
+                    return result.Count;
+                }
         }
 
         public override long Enumerate(EmployeeQuery query)
         {
-            using (var enumerator = this.ConvertQuery(query).Run())
-            {
+            using (var q = ConvertQuery(query))
+            using(var result = q.Run()) {
                 long ages = 0;
-                foreach (var row in enumerator)
+                foreach (var row in result)
                 {
-                    ages += row.Document.GetProperty<long>("age");
+                    ages += row.GetLong("age");
                 }
                 return ages;
             }
         }
 
-        private Query ConvertQuery(EmployeeQuery query)
+        private IQuery ConvertQuery(EmployeeQuery query)
         {
-            var q = this.db.CreateAllDocumentsQuery();
-            q.PostFilter = row =>
-            {
-                    var name = row.Document.GetProperty<string>("name");
-                    var age = row.Document.GetProperty<long>("age");
-                    var isHired = row.Document.GetProperty<bool>("is_hired");
-
-                    return name.Contains(query.Name) && age >= query.MinAge && age <= query.MaxAge && isHired == query.IsHired;
-            };
-
-            return q;
+            return Query.Select(SelectResult.Expression(Expression.Property("age")))
+                .From(DataSource.Database(db))
+                .Where(Function.Contains(Expression.Property("name"), query.Name)
+                    .And(Expression.Property("age").Between(query.MinAge, query.MaxAge))
+                    .And(Expression.Property("is_hired").EqualTo(query.IsHired)));
         }
     }
 }

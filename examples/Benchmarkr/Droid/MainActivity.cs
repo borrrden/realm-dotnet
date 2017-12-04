@@ -33,6 +33,8 @@ namespace Benchmarkr.Droid
     {
         protected override void OnCreate(Bundle bundle)
         {
+            global::Couchbase.Lite.Support.Droid.Activate(ApplicationContext);
+
             base.OnCreate(bundle);
 
             global::Xamarin.Forms.Forms.Init(this, bundle);
